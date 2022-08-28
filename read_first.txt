@@ -1,0 +1,29 @@
+The crawel_netflix_tv_or_movie.py is used to scarp data from the search engine: https://can.newonnetflix.info/
+
+The script is now designed to scarp only movie or tv show information at one time. This is bacause the tv show has an additional field: episode airtime
+-----------------------------------------------------------------------------------------
+To scarp information of movie:
+set line 704 to:
+list_of_type = ['https://can.newonnetflix.info/catalogue/a2z/movies']
+and make sure you comment out line 701
+
+ line 1517 to:
+fields = ['id','title', 'genre', 'cast', 'director','duration','available_date','parent_control','language','audio_description','subtitle','production_detail','image_url','rating','key_words'] 
+and make sure you comment out line 1516
+
+To scarp information of tv show:
+
+set line 701 to:
+list_of_type = ['https://can.newonnetflix.info/catalogue/a2z/tv_programmes']
+and make sure you comment out line 704
+
+Set line 1516 to
+fields = ['id','title', 'genre', 'cast', 'director','episode_time','available_date','parent_control','language','audio_description','subtitle','status','production_detail','image_url','rating','episode_airtime','key_words']
+and make sure you comment oyt line 1517
+----------------------------------------------------------------------------------------
+The additional libraries you need to run this script is:
+bs4
+pip install beautifulsoup4
+
+imdbpy
+https://imdbpy.github.io/
