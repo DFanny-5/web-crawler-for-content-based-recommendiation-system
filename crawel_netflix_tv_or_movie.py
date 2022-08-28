@@ -7,6 +7,23 @@ from time import time
 import csv
 from IMDB_API import IMDB_API
 
+ITEM_PER_PAGE = 120
+
+def get_number_of_elements(soup_instance):
+    search_key_word_titles = soup_instance.find_all(string=re.compile(r"\d+ titles"))[0]
+    title_number_pattern = r'(\d+) titles'
+    return re.search(title_number_pattern, str(search_key_word_titles)).group(1)
+
+
+def split_index_page(url_suffix:str, total_items_numbers:int):
+    sub_page_number = total_items_numbers // ITEM_PER_PAGE + 1
+    print('{0} has {1} movies/tv show,split into {2} segments'.format(url_suffix, total_items_numbers, sub_page_number))
+    index_sub_page_urls = []
+    for i in range(sub_page_number):
+        print(url + f'/?start={i * 120}#results')
+        index_sub_page_urls.append(url+f'/?start={i*120}#results')
+    return index_sub_page_urls
+
 def getHtmlList(url):
 
     try:
@@ -704,32 +721,19 @@ list_of_type = ['https://can.newonnetflix.info/catalogue/a2z/tv_programmes']
                 #
                   # the two main search page url to use
 # list_of_type =['https://can.newonnetflix.info/catalogue/a2z/movies']
-url_total_index_1 = [i + j for i in list_of_type for j in list_of_index]
+index_page_urls = [i + j for i in list_of_type for j in list_of_index]
 record_n = set()
 pattern_title = r'(\d+) titles'
-detail_of_page = []
 count_total = 0
-for i in url_total_index_1:
-    strhtml_t = getHtmlList(i)
-    title_n_1 = strhtml_t.select("body > div.wrapper > section:nth-child(4) > i")[0].text  # find the line record title
-    title_n = re.search(pattern_title, title_n_1).group(1)
-    number_page_left = int(title_n) / 120
-    number_page_left = ceil(number_page_left)
-    start1 = '/?start='
-    result1 = '#results'
-    print('{0} has {1} movies/tv show,split into {2} segments'.format(i, title_n, number_page_left))
-    count_total += int(title_n)
-    if number_page_left == 0:
-        detail_of_page.append(i)
-        print('the detail is', i)
-    else:
-        for j in range(number_page_left):
-            detail_of_page.append(i + start1 + str(j * 120) + result1)
-            print('the detail is', i + start1 + str(j * 120) + result1)
+split_page_urls = []
+for url in index_page_urls:
+    html_t = getHtmlList(url)
+    items_numbers_with_this_index = int(get_number_of_elements(html_t))
+    count_total += items_numbers_with_this_index
+    split_page_urls.extend(split_index_page(url, items_numbers_with_this_index))
 
-print('There are totally {0}'.format(count_total))
+print(f"Prediction: {count_total} movie/tv shows will be scrapped")
 print('start crawling')
-print('sample of detail is',detail_of_page[2])
 ####special index-------------
 special1 = 0
 # ------------------------------initialize
@@ -739,7 +743,7 @@ tv_number = 0
 id_movie = '1'
 id_tv = '2'
 total_record = []# used for all the recording
-for final_web in detail_of_page:
+for final_web in split_page_urls:
     record_n = set()
     strhtml = getHtmlList(final_web)
     print('start searching on ', final_web)
