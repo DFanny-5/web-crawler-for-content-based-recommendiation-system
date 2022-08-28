@@ -3,7 +3,7 @@ from bs4 import BeautifulSoup
 import re
 from math import ceil
 from time import time
-import try2  #d
+#import try2  #d
 import csv
 from IMDB_API import IMDB_API
 
@@ -689,11 +689,13 @@ strhtml = getHtmlList(url7)  # is a soup class
 nn = strhtml.find_all('a', {'class': 'infopop'}, href=re.compile('/info'))
 
 
-list_of_index = [ '','/a', '/b', '/c', '/d',
-                 '/f', '/g', '/h', '/i', '/j',
-                 '/k', '/l', '/m', '/n', '/o',
-                 '/p', '/q', '/r', '/s', '/t',
-                 '/u', '/v', '/w', '/x', '/y', '/z'] # '' is missing
+def create_page_index():
+    list_of_char_index = ['']
+    for char_index in range(26):
+        list_of_char_index.append(f"/{chr(ord('a') + char_index)}")
+    return list_of_char_index
+
+list_of_index = create_page_index()
 
 #list_of_index = [ '/v', '/w', '/x', '/y', '/z'] # '' is missing
 
