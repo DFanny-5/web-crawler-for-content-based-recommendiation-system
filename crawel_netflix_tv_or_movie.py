@@ -6,6 +6,7 @@ from time import time
 #import try2  #d
 import csv
 from IMDB_API import IMDB_API
+from models import movie_entry
 
 ITEM_PER_PAGE = 120
 
@@ -24,8 +25,8 @@ def split_index_page(url_suffix:str, total_items_numbers:int):
         index_sub_page_urls.append(url+f'/?start={i*120}#results')
     return index_sub_page_urls
 
-def getHtmlList(url):
 
+def getHtmlList(url):
     try:
         headers = {'User-Agent':'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) ''Chrome/51.0.2704.63 Safari/537.36'}
         r = requests.get(url, headers = headers, timeout = 30)
@@ -44,37 +45,33 @@ def transfer(select_t): # parameter need to be 'bs4.element.Tag'
         return data[0]
     else:
         print('data not only one element')
-def time_transfer(str1):
-    h_pattern = r'(\d*)(?=hr)'
-    m_pattern = r'(\d*)(?=m)'
-    hour = re.search(h_pattern,str1)
-    if hour:
-        hour_1 = int(hour.group())
-    else:
-        hour_1 = 0
-    minute = re.search(m_pattern,str1)
-    if minute:
-        minute_1 = int(minute.group())
-    else:
-        minute_1 = 0
-    time1 = hour_1*60+minute_1
-    return time1
-def date_transfer(str1):
-    pattern = r'(\d+)\w* (\w+) (\d+)(?= )'
-    total = re.search(pattern,str1)
-    try:
-        year = total.group(3)
-        day = total.group(1)
-    except AttributeError:
-        year = 'None'
-        return None, year
-    month = total.group(2)
-    month_n = month_d[month]
-    current = year+'/'+str(month_n)+'/'+day
-    correct = int(year)*12 + int(month_n) +int(day)# 2020 Dec = 2020*12+ 12
 
-    return current,year
-    #return correct
+def time_transfer(time_string):
+    hour_pattern = r'(\d*)(?=hr)'
+    minute_pattern = r'(\d*)(?=m)'
+    hour = re.search(hour_pattern, time_string)
+
+    hour = int(hour.group()) if hour else 0
+    minute = re.search(minute_pattern, time_string)
+    minute = int(minute.group()) if minute else 0
+    time_duration = hour*60+minute
+    return time_duration
+
+
+def date_transfer(time_stamp_string):
+    pattern = r'(\d+)\w* (\w+) (\d+)(?= )'
+    time_stamp = re.search(pattern, time_stamp_string)
+    try:
+        year = time_stamp.group(3)
+        day = time_stamp.group(1)
+    except AttributeError:
+        return None, None, None
+    month = time_stamp.group(2)
+    month_n = month_d[month]
+    date_stamp = year+'/'+str(month_n)+'/'+day
+    month_in_the_year = int(year)*12 + int(month_n) # 2020 Dec = 2020*12+ 12
+
+    return date_stamp, month_in_the_year, year
 
 def language_record(str1):
     pattern = r'(?<=Audio: )([\w, \[\]]+)(?!, )'
@@ -684,13 +681,14 @@ def tv_info(soup):
 
 month_d = {'January': 1, 'February': 2, 'March': 3, 'April': 4, 'May': 5, 'June': 6, 'July': 7, 'August': 8,
            'September': 9, 'October': 10, 'November': 11, 'December': 12}
+#movie example
 url = 'https://can.newonnetflix.info/info/70108779'
 
 url2 = 'https://can.newonnetflix.info/info/70270776'
 url3 = 'https://can.newonnetflix.info/info/81210770'
 url4 = 'https://can.newonnetflix.info/info/70108987'
 
-# tv show
+# tv show example
 url5 = 'https://can.newonnetflix.info/info/81272752'
 url1 = 'https://can.newonnetflix.info/info/80165247'  # tv show
 
@@ -706,22 +704,108 @@ strhtml = getHtmlList(url7)  # is a soup class
 nn = strhtml.find_all('a', {'class': 'infopop'}, href=re.compile('/info'))
 
 
+def handle_scrap_error(f):
+    def wrapper(*args, **kw):
+        try:
+            return f(*args, **kw)
+        except Exception:
+            print('I am triggered')
+            return None
+    return wrapper
+
 def create_page_index():
+    # list_of_index = [ '/','/a', '/b', '/c', '/d', ...,'/z']
     list_of_char_index = ['']
-    for char_index in range(26):
+    for char_index in range(1):
         list_of_char_index.append(f"/{chr(ord('a') + char_index)}")
     return list_of_char_index
 
+
+INDIVIDUAL_PAGE_URL = 'https://can.newonnetflix.info'
+
+def extract_individual_page_url(page_url):
+    """
+        :param search_result: bs4.element.NavigableString
+        :return: detailed_url: str
+    """
+
+    individual_page_url = INDIVIDUAL_PAGE_URL+page_url
+    page_soup = getHtmlList(individual_page_url)
+    record = movie_entry(individual_page_url)
+    print(individual_page_url)
+    process_page(page_soup, record)
+
+
+def process_page(page_soup, record):
+    record.title = generate_title(page_soup)
+    record.genre = generate_genre(page_soup)
+    record.cast = generate_cast(page_soup)
+    record.director = generate_director(page_soup)
+    record.time_duration = generate_duration(page_soup)
+    record.added_date, record.added_month, record.added_year = generate_available_date(page_soup)
+    record.parent_control = generate_parent_control(page_soup)
+    record.original_language = generate_original_language(page_soup)
+    record.subtitle
+    print(record.original_language)
+    print('-------')
+
+
+@handle_scrap_error
+def generate_title(soup):
+    return soup.find('a', title=True).getText()
+
+
+@handle_scrap_error
+def generate_genre(soup):
+    for genre_field in soup.find_all('div', "genre"):
+        if genre := genre_field.find('h5'):
+            return genre.getText()
+
+
+@handle_scrap_error
+def generate_cast(soup):
+    cast_field = soup.find("strong", string="Cast:").parent #<class 'bs4.element.Tag'>
+    return [cast.getText() for cast in cast_field.find_all("a")]
+
+
+@handle_scrap_error
+def generate_director(soup):
+    director_field = soup.find("strong", string="Director:").parent
+    return [director.getText() for director in director_field.find_all("a")]
+
+
+@handle_scrap_error
+def generate_duration(soup):
+    return time_transfer(soup.find("strong", string="Duration:").nextSibling)
+
+
+@handle_scrap_error
+def generate_available_date(soup):
+    return date_transfer(soup.find("strong", string="Date Added:").nextSibling)
+
+
+@handle_scrap_error
+def generate_parent_control(soup):
+    return soup.find("span", "ratingsblock").getText()
+
+
+@handle_scrap_error
+def generate_original_language(soup):
+    languages = soup.find("strong", string="Audio:").nextSibling
+    original_pattern = r'(\w*)(?=[ ]*\[Original\])'
+    original_language = re.search(original_pattern, languages).group(1)
+    return original_language
+
+
+
 list_of_index = create_page_index()
 
-#list_of_index = [ '/v', '/w', '/x', '/y', '/z'] # '' is missing
-
 #change here to collect the tv or movie data for this time, you can place them in the same list to collect both of them together
-list_of_type = ['https://can.newonnetflix.info/catalogue/a2z/tv_programmes']
-                #
-                  # the two main search page url to use
-# list_of_type =['https://can.newonnetflix.info/catalogue/a2z/movies']
-index_page_urls = [i + j for i in list_of_type for j in list_of_index]
+# the two main search page url to use
+#list_of_type = ['https://can.newonnetflix.info/catalogue/a2z/tv_programmes']
+
+list_of_type =['https://can.newonnetflix.info/catalogue/a2z/movies']
+index_page_urls = [url + index for url in list_of_type for index in list_of_index]
 record_n = set()
 pattern_title = r'(\d+) titles'
 count_total = 0
@@ -743,13 +827,18 @@ tv_number = 0
 id_movie = '1'
 id_tv = '2'
 total_record = []# used for all the recording
-for final_web in split_page_urls:
+extract_individual_page_url("/info/80222822")
+"""for final_web in split_page_urls:
     record_n = set()
-    strhtml = getHtmlList(final_web)
-    print('start searching on ', final_web)
-    nn = strhtml.find_all('a', {'class': 'infopop'}, href=re.compile('/info'))
+    soup = getHtmlList(final_web)
+    print('start searching on page:', final_web)
+    search_results = soup.find_all('a', {'class': 'infopop'}, href=re.compile('/info'), title=True)
+    for search_result in search_results:
+        extract_individual_page_url(search_result.attrs['href'])"""
+    #print(nn)
 
-    for n, i in enumerate(nn):
+
+"""    for n, i in enumerate(nn):
         record_n.add(test_url + i['href'])
         # print('nn is',record_n[n])
     total_movie = [i for i in record_n]
@@ -1541,4 +1630,4 @@ print('500th record:-----------------')
 #print('3000th record:-----------------')
 #[print(i) for i in total_record[3000]]
 #print('6000th record:-----------------')
-#[print(i) for i in total_record[6000]]
+#[print(i) for i in total_record[6000]]"""
